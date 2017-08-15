@@ -1,0 +1,42 @@
+import scala.util.control.NonFatal
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import java.util.{Collections, Properties}
+import scala.collection.JavaConverters._
+import java.io.FileInputStream
+import java.io.InputStream;
+
+class KafkaConsumerf(channelObj:BufferChannel[String]) extends Thread{
+  val confProps = new Properties()
+  val input:InputStream  = new FileInputStream("config.properties")
+  confProps.load(input)
+  val bootstrapServer = confProps.getProperty("bootstrap.server")
+  val groupId = confProps.getProperty("group.id")
+  val topic = confProps.getProperty("kafka.topic")
+
+  val  props = new Properties()
+  props.put("bootstrap.servers",bootstrapServer)
+  props.put("group.id",groupId)
+  props.put("enable.auto.commit.config", "true")
+  props.put("auto.commit.internal.ms.config", "1000")
+  props.put("session.timeout.ms.config", "3000")
+  props.put("key.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
+  props.put("value.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
+
+  val consumer = new KafkaConsumer[String,String](props)
+
+  consumer.subscribe(Collections.singletonList(topic))
+
+  override def run(): Unit = {
+    println("kafka thread running")
+    while (true) {
+      val records = consumer.poll(1000)
+      //msg :::: "1,FE-001.LowFlow_Tripped,1499317832,0.00000,TEXT"
+      var msg: String = null
+      for (record <- records.asScala) {
+        msg = record.value()
+//        println(record.value())
+       channelObj.write(msg)
+      }
+    }
+  }
+}
